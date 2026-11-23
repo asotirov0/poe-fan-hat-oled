@@ -3,23 +3,26 @@
 Status display for the 0.87" 128×32 OLED (SSD1316, I2C bus 1, address `0x3c`) on the
 **Seengreat PoE Fan HAT (C)** for the Raspberry Pi 5.
 
+The panel has only 32 pixel rows, so the four status lines are shown two at a time in a
+double-height font. The display alternates between two pages every 4 seconds:
+
 ```text
-node1      up   9d06h
-eth0 192.168.1.51
-56.8°C fan 3043
-load 0.74 OK
+page 1                     page 2
++---------------------+    +---------------------+
+|node1      up   9d06h|    |56.8°C fan 3043      |
+|eth0 192.168.1.51    |    |load 0.74 OK         |
++---------------------+    +---------------------+
 ```
 
-| Line | Shows |
-| --- | --- |
-| 1 | short hostname, uptime |
-| 2 | interface of the default route (or `OLED_IFACE`) and its IPv4; the address alone if both do not fit |
-| 3 | CPU temperature in °C or °F (`OLED_TEMP_UNIT`); fan rpm, `fan 0rpm!` (driven but no tach pulses), `fan off`, or `fan --` (no fan bound) |
-| 4 | 1-minute load; `OK` or the throttle flags seen in the last 60 seconds (`OLED_FLAG_HOLD`): `UV` under-voltage, `CAP` frequency capped, `THR` throttled, `HOT` soft temperature limit |
+| Page | Line | Shows |
+| --- | --- | --- |
+| 1 | 1 | short hostname, uptime |
+| 1 | 2 | interface of the default route (or `OLED_IFACE`) and its IPv4; the address alone if both do not fit |
+| 2 | 3 | CPU temperature in °C or °F (`OLED_TEMP_UNIT`); fan rpm, `fan 0rpm!` (driven but no tach pulses), `fan off`, or `fan --` (no fan bound) |
+| 2 | 4 | 1-minute load; `OK` or the throttle flags seen in the last 60 seconds (`OLED_FLAG_HOLD`): `UV` under-voltage, `CAP` frequency capped, `THR` throttled, `HOT` soft temperature limit |
 
-The panel only has 32 pixel rows, so the lines are shown two at a time in a double-height
-font: lines 1-2, then lines 3-4, alternating every 4 seconds (`OLED_PAGE_SECONDS`). Set it
-to `0` to show all four at once in the small 5x7 font.
+`OLED_PAGE_SECONDS` sets how long each page stays up. With `OLED_PAGE_SECONDS=0` there is no
+paging: all four lines are shown at once in the small 5x7 font.
 
 The HAT's fan is not driven by this package. It plugs into the Pi 5 FAN header and is run by
 the kernel's `pwm_fan` driver.
@@ -56,7 +59,7 @@ The package lands in the parent directory.
 
 ```bash
 sudo apt install ../poe-fan-hat-oled_<version>_all.deb
-poe-fan-hat-oled --print          # the four lines, without touching the display
+poe-fan-hat-oled --print          # all four lines at once, without touching the display
 systemctl status poe-fan-hat-oled
 ```
 
