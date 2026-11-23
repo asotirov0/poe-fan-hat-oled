@@ -3,7 +3,9 @@
 Status display for the 0.87" 128×32 OLED (SSD1316, I2C bus 1, address `0x3c`) on the
 **Seengreat PoE Fan HAT (C)** for the Raspberry Pi 5.
 
-![The OLED showing CPU temperature, fan speed, board power and load](docs/panel.jpg)
+| Page 1 | Page 2 |
+| --- | --- |
+| ![The OLED showing hostname, uptime, interface and IP address](docs/panel-page1.jpg) | ![The OLED showing CPU temperature, fan speed, board power and load](docs/panel-page2.jpg) |
 
 ![Three Raspberry Pi 5 nodes in a rack, each with the HAT and its display](docs/rack.jpg)
 
