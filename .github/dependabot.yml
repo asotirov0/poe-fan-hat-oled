@@ -1,0 +1,13 @@
+# Keeps the commit-pinned actions in .github/workflows up to date.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    # Do not propose a release until it has been out for two weeks.
+    cooldown:
+      default-days: 14
+    groups:
+      actions:
+        patterns: ["*"]
