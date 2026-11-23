@@ -13,6 +13,35 @@ def write(root, rel, text):
         f.write(text)
 
 
+PMIC = """\
+ 3V7_WL_SW_A current(0)=0.00000000A
+   3V3_SYS_A current(1)=0.15907660A
+   1V8_SYS_A current(2)=0.20494530A
+  DDR_VDD2_A current(3)=0.00292779A
+  DDR_VDDQ_A current(4)=0.00000000A
+   1V1_SYS_A current(5)=0.32986440A
+    0V8_SW_A current(6)=0.52309850A
+  VDD_CORE_A current(7)=0.96444000A
+   3V3_DAC_A current(17)=0.00000000A
+   3V3_ADC_A current(18)=0.00048840A
+   0V8_AON_A current(16)=0.00335775A
+      HDMI_A current(22)=0.01440780A
+ 3V7_WL_SW_V volt(8)=3.65616200V
+   3V3_SYS_V volt(9)=3.31188900V
+   1V8_SYS_V volt(10)=1.80121900V
+  DDR_VDD2_V volt(11)=1.11062200V
+  DDR_VDDQ_V volt(12)=0.60439500V
+   1V1_SYS_V volt(13)=1.10292900V
+    0V8_SW_V volt(14)=0.79890030V
+  VDD_CORE_V volt(15)=0.72097620V
+   3V3_DAC_V volt(20)=3.31501500V
+   3V3_ADC_V volt(21)=3.31135200V
+   0V8_AON_V volt(19)=0.79912020V
+      HDMI_V volt(23)=5.14426000V
+     EXT5V_V volt(24)=5.14828000V
+      BATT_V volt(25)=0.00085470V
+"""
+
 ROUTE = (
     "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT\n"
     "eth1\t00000000\t0102A8C0\t0003\t0\t0\t100\t00000000\t0\t0\t0\n"
@@ -110,6 +139,37 @@ class FakeHost(unittest.TestCase):
         line = screen.lines("lo", self.root)[3]
         self.assertEqual(line, "12.34 UV CAP THR HOT")
         self.assertLessEqual(len(line), screen.COLUMNS)
+
+    def test_power(self):
+        self.assertAlmostEqual(stats.pmic_power(PMIC), 2.4547, places=3)
+        self.assertIsNone(stats.pmic_power("error=1 error_msg=\"Command not registered\""))
+        self.assertIsNone(stats.power(self.root))  # no firmware mailbox in the fake tree
+        # Message layout and reply parsing for a firmware text command.
+        req = stats.gencmd_request("pmic_read_adc")
+        self.assertEqual(len(req), 1052)
+        self.assertEqual(req[:24].hex(),
+                         "1c040000" "00000000" "80000300" "00040000" "00000000" "00000000")
+        self.assertEqual(bytes(req[24:38]), b"pmic_read_adc\0")
+        self.assertIsNone(stats.gencmd_reply(req))  # unanswered request
+        reply = bytearray(req)
+        reply[4:8] = (0x80000000).to_bytes(4, "little")
+        reply[24:24 + len(PMIC) + 1] = PMIC.encode() + b"\0"
+        self.assertEqual(stats.gencmd_reply(reply), PMIC)
+        reply[20:24] = (1).to_bytes(4, "little")  # firmware error code
+        self.assertIsNone(stats.gencmd_reply(reply))
+        self.assertLess(len(PMIC), stats.GENCMD_MAX)
+
+    def test_power_on_the_fan_line(self):
+        r = self.root
+        self.assertEqual(screen.lines("lo", r, watts=2.4547)[2], "62.3°C fan 3120 2.5W")
+        self.assertEqual(screen.lines("lo", r, "F", watts=12.34)[2], "144.1°F fan 3120")  # full
+        for line in screen.lines("lo", r, "F", watts=9.96):
+            self.assertLessEqual(len(line), screen.COLUMNS, line)
+        smooth = screen.Smooth(0.5)
+        self.assertEqual(smooth.update(2.0), 2.0)
+        self.assertEqual(smooth.update(4.0), 3.0)
+        self.assertIsNone(smooth.update(None))
+        self.assertEqual(smooth.update(5.0), 5.0)
 
     def test_fan_text(self):
         self.assertEqual(screen.fan_text(None), "fan --")

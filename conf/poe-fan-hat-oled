@@ -11,6 +11,11 @@ OLED_IFACE=
 # CPU temperature unit: C (Celsius) or F (Fahrenheit).
 OLED_TEMP_UNIT=C
 
+# 1 = show the board's estimated power draw in watts after the fan speed (Pi 5 only).
+# It is what the board itself consumes; USB devices, the fan, the HAT and conversion
+# losses are not included, so the node draws more than this from the switch.
+OLED_POWER=1
+
 # Keep a throttle flag (UV, CAP, THR, HOT) on screen for this many seconds after it was
 # last seen; they flip within seconds near a limit. 0 = show only the current state.
 OLED_FLAG_HOLD=60

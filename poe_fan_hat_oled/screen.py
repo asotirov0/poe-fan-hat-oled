@@ -24,6 +24,23 @@ class Latch:
                 if f in self.seen and now - self.seen[f] <= self.hold]
 
 
+class Smooth:
+    """Exponential moving average; the power reading jumps with every burst of CPU work."""
+
+    def __init__(self, weight: float = 0.3):
+        self.weight = weight
+        self.value: float | None = None
+
+    def update(self, sample: float | None) -> float | None:
+        if sample is None:
+            self.value = None
+        elif self.value is None:
+            self.value = sample
+        else:
+            self.value += self.weight * (sample - self.value)
+        return self.value
+
+
 def fan_text(f: tuple[int, int] | None) -> str:
     if f is None:
         return "fan --"          # no pwm-fan bound: firmware found no fan
@@ -36,7 +53,8 @@ def fan_text(f: tuple[int, int] | None) -> str:
 
 
 def lines(iface: str | None = None, root: str = "", unit: str = "C",
-          latch: Latch | None = None, now: float = 0.0) -> list[str]:
+          latch: Latch | None = None, now: float = 0.0,
+          watts: float | None = None) -> list[str]:
     ifc = iface or stats.default_iface(root) or "?"
     ip = stats.ipv4(ifc) if ifc != "?" else None
     t = stats.cpu_temp(root)
@@ -52,6 +70,8 @@ def lines(iface: str | None = None, root: str = "", unit: str = "C",
     if ip and len(l2) > COLUMNS:
         l2 = ip                  # long interface name: the address matters more
     l3 = f"{'--.-' if t is None else f'{t:4.1f}'}°{unit} {fan_text(stats.fan(root))}"
+    if watts is not None and len(f"{l3} {watts:.1f}W") <= COLUMNS:
+        l3 = f"{l3} {watts:.1f}W"   # left out when the line is already full
     status = "OK" if thr == [] else ("?" if thr is None else " ".join(thr))
     load_s = "-" if load is None else f"{load:.2f}"
     l4 = f"load {load_s} {status}"

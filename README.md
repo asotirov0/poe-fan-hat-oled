@@ -9,7 +9,7 @@ double-height font. The display alternates between two pages every 4 seconds:
 ```text
 page 1                     page 2
 +---------------------+    +---------------------+
-|node1      up   9d06h|    |56.8°C fan 3043      |
+|node1      up   9d06h|    |56.8°C fan 3043 2.5W |
 |eth0 192.168.1.51    |    |load 0.74 OK         |
 +---------------------+    +---------------------+
 ```
@@ -18,11 +18,17 @@ page 1                     page 2
 | --- | --- | --- |
 | 1 | 1 | short hostname, uptime |
 | 1 | 2 | interface of the default route (or `OLED_IFACE`) and its IPv4; the address alone if both do not fit |
-| 2 | 3 | CPU temperature in °C or °F (`OLED_TEMP_UNIT`); fan rpm, `fan 0rpm!` (driven but no tach pulses), `fan off`, or `fan --` (no fan bound) |
+| 2 | 3 | CPU temperature in °C or °F (`OLED_TEMP_UNIT`); fan rpm, `fan 0rpm!` (driven but no tach pulses), `fan off`, or `fan --` (no fan bound); estimated board power in watts (`OLED_POWER`), left out when the line is full |
 | 2 | 4 | 1-minute load; `OK` or the throttle flags seen in the last 60 seconds (`OLED_FLAG_HOLD`): `UV` under-voltage, `CAP` frequency capped, `THR` throttled, `HOT` soft temperature limit |
 
 `OLED_PAGE_SECONDS` sets how long each page stays up. With `OLED_PAGE_SECONDS=0` there is no
 paging: all four lines are shown at once in the small 5x7 font.
+
+The power figure is an estimate of what the Pi 5 board itself consumes: the sum of volts
+times amps over the supply rails its power chip (PMIC) measures, smoothed over a few
+readings. It does **not** include USB devices, the fan, the HAT or conversion losses, so the
+node draws more than this from the PoE switch. Use it to compare nodes and to see load
+changes, not as a meter reading.
 
 The HAT's fan is not driven by this package. It plugs into the Pi 5 FAN header and is run by
 the kernel's `pwm_fan` driver.
@@ -63,14 +69,16 @@ poe-fan-hat-oled --print          # all four lines at once, without touching the
 systemctl status poe-fan-hat-oled
 ```
 
-Settings: `/etc/default/poe-fan-hat-oled` (bus, address, interface, temperature unit, flag hold
-time, brightness, refresh, page time, burn-in shift, 180° flip). Restart the service after editing.
+Settings: `/etc/default/poe-fan-hat-oled` (bus, address, interface, temperature unit, power
+figure on or off, flag hold time, brightness, refresh, page time, burn-in shift, 180° flip).
+Restart the service after editing.
 
 ## Design
 
 - Standard library only: `i2c-dev` via `ioctl`, readings from `/proc` and `/sys`. No numpy,
   smbus or lgpio, and no `vcgencmd`.
-- Throttle flags come from the firmware mailbox (`/dev/vcio`, the interface `vcgencmd` uses).
+- Throttle flags and the power figure come from the firmware mailbox (`/dev/vcio`, the
+  interface `vcgencmd` uses); the power figure is the firmware's `pmic_read_adc` reading.
   The kernel's `get_throttled` sysfs file holds the same value, but it is deprecated and
   reading it logs a kernel warning, so it is only the fallback when `/dev/vcio` cannot be
   opened. The service log says which source is in use.
@@ -80,7 +88,7 @@ time, brightness, refresh, page time, burn-in shift, 180° flip). Restart the se
   connecting a socket to 8.8.8.8; this reads it from the interface instead.
 - Runs as a `DynamicUser` with only the i2c devices and `/dev/vcio` allowed
   (`DevicePolicy=closed`). `/dev/vcio` is opened read-only, but note that the mailbox can do
-  more than report throttling; the daemon sends it one fixed query and nothing else.
+  more than report throttling; the daemon sends it two fixed read-only queries and nothing else.
 - No HAT or no bus: logs once and retries every 30 s. It never crash-loops, so the package
   can be installed on hosts without the hardware.
 - On stop the panel is blanked and its charge pump switched off.

@@ -7,6 +7,7 @@ Every reader takes a `root` prefix so the tests can point it at a fake tree.
 import fcntl
 import glob
 import os
+import re
 import socket
 import struct
 
@@ -19,6 +20,8 @@ THROTTLE_NOW = {0: "UV", 1: "CAP", 2: "THR", 3: "HOT"}
 VCIO = "/dev/vcio"
 IOCTL_MBOX_PROPERTY = (3 << 30) | (struct.calcsize("P") << 16) | (100 << 8)  # _IOWR(100, 0, char *)
 TAG_GET_THROTTLED = 0x00030046
+TAG_GET_GENCMD_RESULT = 0x00030080
+GENCMD_MAX = 1024  # longest command or reply, as in vcgencmd
 MBOX_OK = 0x80000000
 # The kernel exposes the same value here, but reading it logs a deprecation WARNING.
 THROTTLED_SYSFS = "/sys/devices/platform/soc/soc:firmware/get_throttled"
@@ -100,20 +103,70 @@ def mbox_value(buf: bytes) -> int | None:
     return value if code == MBOX_OK and length & MBOX_OK else None
 
 
-def _throttled_vcio(root: str = "") -> int | None:
+def _mbox_call(buf: bytearray, root: str = "") -> bool:
+    """Send one property message to the firmware; the reply overwrites `buf`."""
     try:
         fd = os.open(f"{root}{VCIO}", os.O_RDONLY)
     except OSError:
-        return None
+        return False
     try:
-        # Value 0 = clear no sticky bits; this only reads.
-        buf = mbox_request(TAG_GET_THROTTLED, 0)
         fcntl.ioctl(fd, IOCTL_MBOX_PROPERTY, buf, True)
-        return mbox_value(buf)
+        return True
     except OSError:
-        return None
+        return False
     finally:
         os.close(fd)
+
+
+def _throttled_vcio(root: str = "") -> int | None:
+    # Value 0 = clear no sticky bits; this only reads.
+    buf = mbox_request(TAG_GET_THROTTLED, 0)
+    return mbox_value(buf) if _mbox_call(buf, root) else None
+
+
+def gencmd_request(command: str) -> bytearray:
+    """Message for a firmware text command (what `vcgencmd <command>` sends): six header
+    words (size, request code, tag, buffer size, request length, error), the command in a
+    1024-byte string buffer, end tag."""
+    text = command.encode("ascii")
+    if len(text) >= GENCMD_MAX:
+        raise ValueError("command too long")
+    size = 6 * 4 + GENCMD_MAX + 4
+    buf = bytearray(size)
+    struct.pack_into("=6I", buf, 0, size, 0, TAG_GET_GENCMD_RESULT, GENCMD_MAX, 0, 0)
+    buf[24:24 + len(text)] = text
+    return buf
+
+
+def gencmd_reply(buf: bytes) -> str | None:
+    """The reply text, or None when the firmware reported an error."""
+    _size, code, _tag, _blen, _rlen, error = struct.unpack_from("=6I", buf, 0)
+    if code != MBOX_OK or error != 0:
+        return None
+    return bytes(buf[24:24 + GENCMD_MAX]).split(b"\0", 1)[0].decode("ascii", "replace")
+
+
+_PMIC_AMPS = re.compile(r"(\w+)_A current\(\d+\)=([0-9.]+)A")
+_PMIC_VOLTS = re.compile(r"(\w+)_V volt\(\d+\)=([0-9.]+)V")
+
+
+def pmic_power(text: str) -> float | None:
+    """Watts from `pmic_read_adc` output: the sum of volts x amps over every rail the PMIC
+    reports both for. This is what the Pi 5 board itself consumes downstream of the PMIC;
+    it excludes USB devices, the fan, the HAT and conversion losses."""
+    amps = {name: float(v) for name, v in _PMIC_AMPS.findall(text)}
+    volts = {name: float(v) for name, v in _PMIC_VOLTS.findall(text)}
+    rails = amps.keys() & volts.keys()
+    return sum(amps[r] * volts[r] for r in rails) if rails else None
+
+
+def power(root: str = "") -> float | None:
+    """Estimated board power in watts (Pi 5 only), or None when not available."""
+    buf = gencmd_request("pmic_read_adc")
+    if not _mbox_call(buf, root):
+        return None
+    text = gencmd_reply(buf)
+    return pmic_power(text) if text else None
 
 
 def throttled_raw(root: str = "") -> tuple[int, str] | None:
