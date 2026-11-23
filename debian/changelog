@@ -1,3 +1,12 @@
+poe-fan-hat-oled (1.1.0) noble; urgency=medium
+
+  * Show the board's estimated power draw in watts after the fan speed, read
+    from the Pi 5 PMIC through the firmware mailbox (OLED_POWER=0 hides it).
+    The figure covers the board only: USB devices, the fan, the HAT and
+    conversion losses are not included.
+
+ -- Angel Sotirov <angel.sotirov@gmail.com>  Mon, 23 Nov 2026 12:00:00 +0200
+
 poe-fan-hat-oled (1.0.0) noble; urgency=medium
 
   * Initial release. Replaces the Seengreat reference demo (numpy + smbus,

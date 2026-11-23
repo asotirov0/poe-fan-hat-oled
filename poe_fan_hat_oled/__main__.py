@@ -3,7 +3,7 @@
 Settings come from the environment (systemd loads /etc/default/poe-fan-hat-oled):
   OLED_BUS=1  OLED_ADDR=0x3c  OLED_IFACE=  OLED_CONTRAST=64  OLED_INTERVAL=2
   OLED_SHIFT_MINUTES=5  OLED_FLIP=0  OLED_PAGE_SECONDS=4
-  OLED_TEMP_UNIT=C  OLED_FLAG_HOLD=60
+  OLED_TEMP_UNIT=C  OLED_FLAG_HOLD=60  OLED_POWER=1
 
 The four status lines are shown two at a time in a double-height font, alternating every
 OLED_PAGE_SECONDS. With OLED_PAGE_SECONDS=0 all four are shown at once in the small font.
@@ -62,7 +62,8 @@ class Stop(Exception):
 
 def run() -> int:
     bus = env_int("OLED_BUS", 1, 0, 255)
-    addr = env_int("OLED_ADDR", 0x3C, 0x08, 0x77, show=hex)  # valid 7-bit range, reserved ones excluded
+    # Valid 7-bit addresses without the reserved ones.
+    addr = env_int("OLED_ADDR", 0x3C, 0x08, 0x77, show=hex)
     iface = os.environ.get("OLED_IFACE", "").strip() or None
     interval = env_int("OLED_INTERVAL", 2, 1, 3600)
     shift_s = env_int("OLED_SHIFT_MINUTES", 5, 0, 1440) * 60
@@ -70,6 +71,8 @@ def run() -> int:
     unit = temp_unit()
     hold = env_int("OLED_FLAG_HOLD", 60, 0, 86400)
     latch = screen.Latch(hold) if hold else None
+    show_power = env_int("OLED_POWER", 1, 0, 1) == 1
+    smooth = screen.Smooth()
     tick = min(interval, page_s) if page_s else interval
     disp = Display(bus, addr, env_int("OLED_CONTRAST", 64, 0, 255),
                    env_int("OLED_FLIP", 0, 0, 1) == 1)
@@ -82,6 +85,9 @@ def run() -> int:
     log(f"poe-fan-hat-oled {__version__}: {disp.path} addr 0x{addr:02x}")
     source = stats.throttled_raw()
     log(f"throttle flags from {source[1] if source else 'nowhere (not readable)'}")
+    if show_power:
+        log("board power estimate " + ("from the PMIC" if stats.power() is not None
+                                       else "not available on this hardware"))
 
     last_error = None
     try:
@@ -96,7 +102,8 @@ def run() -> int:
                 while True:
                     now = time.monotonic()
                     step = int(now // shift_s) % len(SHIFT_STEPS) if shift_s else 0
-                    text = screen.lines(iface, unit=unit, latch=latch, now=now)
+                    watts = smooth.update(stats.power()) if show_power else None
+                    text = screen.lines(iface, unit=unit, latch=latch, now=now, watts=watts)
                     if page_s:  # two lines per page, pages alternate
                         first = int(now // page_s) % (len(text) // 2) * 2
                         text = text[first:first + 2]
@@ -135,7 +142,8 @@ def main() -> int:
     a = p.parse_args()
     if a.print:
         iface = os.environ.get("OLED_IFACE", "").strip() or None
-        print("\n".join(screen.lines(iface, unit=temp_unit())))
+        watts = stats.power() if env_int("OLED_POWER", 1, 0, 1) == 1 else None
+        print("\n".join(screen.lines(iface, unit=temp_unit(), watts=watts)))
         return 0
     return run()
 
