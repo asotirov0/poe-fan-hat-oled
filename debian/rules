@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+# Keep the test run from leaving __pycache__ in the shipped tree.
+export PYTHONDONTWRITEBYTECODE=1
+
+%:
+	dh $@
+
+# Pure Python, no build step; run the unit tests at build time.
+override_dh_auto_build:
+override_dh_auto_install:
+
+override_dh_auto_test:
+	python3 -m unittest discover -s tests -v

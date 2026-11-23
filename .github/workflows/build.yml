@@ -1,0 +1,87 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m unittest discover -s tests -v
+
+  deb:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential debhelper lintian
+      - name: Build package
+        run: |
+          dpkg-buildpackage -us -uc -b
+          mkdir dist
+          mv ../poe-fan-hat-oled_*_all.deb dist/
+          (cd dist && sha256sum *.deb | tee SHA256SUMS)
+      - name: Inspect package
+        run: |
+          dpkg-deb --info dist/*.deb
+          dpkg-deb --contents dist/*.deb
+          lintian dist/*.deb || true
+      - name: Install and smoke-test
+        run: |
+          sudo apt-get install -y ./dist/*.deb
+          poe-fan-hat-oled --version
+          poe-fan-hat-oled --print
+          # No HAT on the runner: the sandboxed service must stay up and keep retrying.
+          sleep 5
+          sudo journalctl -u poe-fan-hat-oled --no-pager
+          systemctl is-active poe-fan-hat-oled
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: poe-fan-hat-oled-deb
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, deb]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read   # to fetch the .deb built by the deb job
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --name poe-fan-hat-oled-deb --dir dist
+      - name: Check that the tag matches the package version
+        run: |
+          version=$(dpkg-parsechangelog -S Version)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match debian/changelog version $version" >&2
+            exit 1
+          fi
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.deb dist/SHA256SUMS --title "$GITHUB_REF_NAME" --generate-notes

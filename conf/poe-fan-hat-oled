@@ -1,0 +1,32 @@
+# Seengreat PoE Fan HAT (C) OLED. Restart after editing:
+#   sudo systemctl restart poe-fan-hat-oled
+
+# I2C bus and panel address (the HAT uses bus 1, 0x3c).
+OLED_BUS=1
+OLED_ADDR=0x3c
+
+# Interface whose IPv4 is shown. Empty = the default route with the lowest metric.
+OLED_IFACE=
+
+# CPU temperature unit: C (Celsius) or F (Fahrenheit).
+OLED_TEMP_UNIT=C
+
+# Keep a throttle flag (UV, CAP, THR, HOT) on screen for this many seconds after it was
+# last seen; they flip within seconds near a limit. 0 = show only the current state.
+OLED_FLAG_HOLD=60
+
+# Brightness 0-255. Lower ages the panel slower.
+OLED_CONTRAST=64
+
+# Seconds between refreshes.
+OLED_INTERVAL=2
+
+# The four status lines are shown two at a time in a double-height font; this is how
+# long each pair stays up. 0 = all four lines at once in the small font.
+OLED_PAGE_SECONDS=4
+
+# Move the text by up to 2 px every N minutes against burn-in. 0 = off.
+OLED_SHIFT_MINUTES=5
+
+# 1 = rotate the picture 180 degrees.
+OLED_FLIP=0

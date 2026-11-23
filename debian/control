@@ -1,0 +1,22 @@
+Source: poe-fan-hat-oled
+Section: utils
+Priority: optional
+Maintainer: Angel Sotirov <angel.sotirov@gmail.com>
+Build-Depends: debhelper-compat (= 13), python3
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+Homepage: https://github.com/asotirov0/poe-fan-hat-oled
+Vcs-Git: https://github.com/asotirov0/poe-fan-hat-oled.git
+Vcs-Browser: https://github.com/asotirov0/poe-fan-hat-oled
+
+Package: poe-fan-hat-oled
+Architecture: all
+Depends: python3 (>= 3.10), adduser, ${misc:Depends}
+Description: status display for the Seengreat PoE Fan HAT (C) OLED
+ Drives the 0.87" 128x32 SSD1316 OLED on the Seengreat PoE Fan HAT (C) for
+ the Raspberry Pi 5 over /dev/i2c-1. Shows hostname, uptime, management IPv4,
+ CPU temperature, fan rpm and the current throttle flags.
+ .
+ Standard library only, no network access (IPAddressDeny=any), runs as a
+ dynamic user with device access limited to i2c and the firmware mailbox
+ (/dev/vcio). Settings in /etc/default/poe-fan-hat-oled.

@@ -1,0 +1,13 @@
+poe-fan-hat-oled (1.0.0) noble; urgency=medium
+
+  * Initial release. Replaces the Seengreat reference demo (numpy + smbus,
+    IP found by connecting to 8.8.8.8, run by hand, never installed) with a
+    standard-library daemon: SSD1316 over i2c-dev, status from /proc and /sys
+    (hostname, uptime, management IPv4, CPU temperature, fan rpm), throttle
+    flags from the firmware mailbox and held for a minute, two double-height
+    lines per page, burn-in pixel shift, blank on stop, retry instead of
+    crash-loop when the bus or panel is missing.
+  * Hardened systemd unit: DynamicUser, device access limited to i2c and
+    /dev/vcio, IPAddressDeny=any.
+
+ -- Angel Sotirov <angel.sotirov@gmail.com>  Sun, 22 Nov 2026 16:00:00 +0200

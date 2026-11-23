@@ -1,0 +1,5 @@
+#!/usr/bin/python3 -I
+import sys
+sys.path.insert(0, "/usr/lib/poe-fan-hat-oled")
+from poe_fan_hat_oled.__main__ import main
+sys.exit(main())

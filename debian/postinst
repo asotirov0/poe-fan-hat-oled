@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+# The unit adds the i2c group; it must exist or systemd refuses to start the service.
+if [ "$1" = configure ] && ! getent group i2c >/dev/null; then
+    addgroup --system i2c
+fi
+
+#DEBHELPER#
+
+exit 0

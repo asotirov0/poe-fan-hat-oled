@@ -1,0 +1,16 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: poe-fan-hat-oled
+
+Files: *
+Copyright: 2026 Angel Sotirov
+License: Apache-2.0
+ On Debian systems the full text is in /usr/share/common-licenses/Apache-2.0.
+
+Files: poe_fan_hat_oled/font.py
+Copyright: none (classic 5x7 bitmap font)
+License: public-domain
+ The ASCII glyph table is the generic 5x7 character-LCD font that has been
+ reproduced for decades in display example code without an author or a
+ copyright notice; its original source is not known. It is treated here as
+ public domain. The degree sign and the code around the table are part of
+ this project and under Apache-2.0.

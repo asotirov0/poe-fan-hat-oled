@@ -1,0 +1,3 @@
+poe_fan_hat_oled usr/lib/poe-fan-hat-oled/
+bin/poe-fan-hat-oled usr/bin/
+conf/poe-fan-hat-oled etc/default/

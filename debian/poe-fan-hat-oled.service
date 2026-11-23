@@ -1,0 +1,49 @@
+[Unit]
+Description=Seengreat PoE Fan HAT (C) OLED status display
+Documentation=file:///usr/share/doc/poe-fan-hat-oled/README.md
+After=systemd-modules-load.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/poe-fan-hat-oled
+ExecStart=/usr/bin/poe-fan-hat-oled
+Restart=on-failure
+RestartSec=10
+
+# Runs as a throwaway user. /dev/i2c-* is group i2c or dialout depending on the image, so
+# both groups are added. /dev/vcio (group video) is the firmware mailbox the throttle
+# flags are read from. The device cgroup below allows ONLY these devices.
+DynamicUser=yes
+SupplementaryGroups=i2c dialout video
+DevicePolicy=closed
+DeviceAllow=char-i2c rw
+DeviceAllow=/dev/vcio r
+
+# No network traffic at all. AF_INET stays allowed only for the SIOCGIFADDR ioctl.
+IPAddressDeny=any
+RestrictAddressFamilies=AF_INET
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
